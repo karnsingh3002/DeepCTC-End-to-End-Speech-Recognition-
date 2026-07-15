@@ -14,6 +14,16 @@ pip install -r requirements.txt
 Requires Python 3.9-3.11 (3.12 also works with TensorFlow >= 2.16). On Apple
 Silicon, `tensorflow-metal` is installed automatically for GPU acceleration.
 
+`DATA_DIR` and `CHECKPOINT_DIR` default to local paths under the repo (`data/`,
+`checkpoints/`) but can be overridden via environment variable — e.g. on Colab
+with Drive mounted, set these before running `train.py`:
+
+```python
+import os
+os.environ["DEEPCTC_DATA_DIR"] = "/content/drive/MyDrive/deepctc_data"
+os.environ["DEEPCTC_CHECKPOINT_DIR"] = "/content/drive/MyDrive/deepctc_checkpoints"
+```
+
 ## Data
 
 Download and extract LJ Speech into `data/LJSpeech-1.1/`:

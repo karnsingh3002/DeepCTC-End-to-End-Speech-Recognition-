@@ -10,12 +10,12 @@ from tqdm import tqdm
 from src.config import BATCH_SIZE, CHECKPOINT_DIR, RESULTS_MD
 from src.dataset import build_dataset, train_val_split
 from src.decode import greedy_decode
-from src.losses import ctc_loss
+from src.model import CTCModel
 from src.vocab import decode_indices
 
 
 def evaluate(checkpoint_path, batch_size=BATCH_SIZE, subset=None):
-    model = tf.keras.models.load_model(checkpoint_path, custom_objects={"ctc_loss": ctc_loss})
+    model = tf.keras.models.load_model(checkpoint_path, custom_objects={"CTCModel": CTCModel})
 
     _, val_df = train_val_split()
     if subset:
@@ -23,7 +23,7 @@ def evaluate(checkpoint_path, batch_size=BATCH_SIZE, subset=None):
     val_ds = build_dataset(val_df, batch_size=batch_size, shuffle=False)
 
     references, hypotheses = [], []
-    for specs, labels in tqdm(val_ds, desc="Evaluating"):
+    for specs, labels, _label_lengths in tqdm(val_ds, desc="Evaluating"):
         preds = model.predict(specs, verbose=0)
         hypotheses.extend(greedy_decode(preds))
         references.extend(decode_indices(labels))

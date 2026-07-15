@@ -12,7 +12,7 @@ import tensorflow as tf
 from src.audio import path_to_spectrogram
 from src.config import CHECKPOINT_DIR
 from src.decode import greedy_decode
-from src.losses import ctc_loss
+from src.model import CTCModel
 
 
 def transcribe(model, wav_path):
@@ -32,7 +32,7 @@ def main():
     )
     args = parser.parse_args()
 
-    model = tf.keras.models.load_model(args.checkpoint, custom_objects={"ctc_loss": ctc_loss})
+    model = tf.keras.models.load_model(args.checkpoint, custom_objects={"CTCModel": CTCModel})
     transcript = transcribe(model, args.wav)
     print(transcript)
 

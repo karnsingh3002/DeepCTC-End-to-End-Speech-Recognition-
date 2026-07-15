@@ -29,8 +29,8 @@ def wav_to_spectrogram(waveform):
     spectrogram = tf.abs(stft)
     spectrogram = tf.math.pow(spectrogram, POWER_COMPRESSION)
 
-    mean = tf.math.reduce_mean(spectrogram)
-    std = tf.math.reduce_std(spectrogram)
+    mean = tf.math.reduce_mean(spectrogram, axis=1, keepdims=True)
+    std = tf.math.reduce_std(spectrogram, axis=1, keepdims=True)
     spectrogram = (spectrogram - mean) / (std + NORM_EPS)
     return spectrogram
 

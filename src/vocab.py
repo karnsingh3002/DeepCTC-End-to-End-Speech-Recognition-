@@ -32,12 +32,21 @@ if __name__ == "__main__":
     print(f"Vocab size (incl. OOV/blank slot): {VOCAB_SIZE}")
     print(f"Vocabulary: {char_to_num.get_vocabulary()}")
 
-    sample = "The quick brown fox, jumps!"
-    encoded = encode_text(sample)
-    decoded = decode_indices(encoded)
-    print(f"Original : {sample}")
-    print(f"Encoded  : {encoded.numpy().tolist()}")
-    print(f"Decoded  : {decoded}")
-    assert decoded == sample.lower().replace(",", "").replace("!", ""), (
-        "round-trip mismatch (expected OOV chars like , and ! to be dropped)"
+    samples = [
+        "The quick brown fox, jumps!",
+        "\"Well,\" she said; \"it's — precisely so.\"",
+        "he paid £10 for it in 1802",  # £, digits: genuinely out of vocab
+    ]
+    for sample in samples:
+        encoded = encode_text(sample)
+        decoded = decode_indices(encoded)
+        print(f"Original : {sample}")
+        print(f"Encoded  : {encoded.numpy().tolist()}")
+        print(f"Decoded  : {decoded}")
+
+    # Punctuation now in VOCAB_CHARS must round-trip exactly (no more silent drops).
+    clean_sample = samples[0]
+    assert decode_indices(encode_text(clean_sample)) == clean_sample.lower(), (
+        "round-trip mismatch on a transcript using only in-vocab characters"
     )
+    print("Round-trip OK for in-vocab text.")

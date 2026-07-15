@@ -3,12 +3,17 @@
 import os
 
 # --- Paths ---
+# DATA_DIR and CHECKPOINT_DIR default to local paths under the repo, but can be
+# overridden via environment variable — e.g. on Colab with Drive mounted:
+#   os.environ["DEEPCTC_DATA_DIR"] = "/content/drive/MyDrive/deepctc_data"
+#   os.environ["DEEPCTC_CHECKPOINT_DIR"] = "/content/drive/MyDrive/deepctc_checkpoints"
+# set before importing src.config/src.train, so nothing else in the codebase changes.
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.path.join(ROOT_DIR, "data")
+DATA_DIR = os.environ.get("DEEPCTC_DATA_DIR", os.path.join(ROOT_DIR, "data"))
 LJSPEECH_DIR = os.path.join(DATA_DIR, "LJSpeech-1.1")
 WAVS_DIR = os.path.join(LJSPEECH_DIR, "wavs")
 METADATA_CSV = os.path.join(LJSPEECH_DIR, "metadata.csv")
-CHECKPOINT_DIR = os.path.join(ROOT_DIR, "checkpoints")
+CHECKPOINT_DIR = os.environ.get("DEEPCTC_CHECKPOINT_DIR", os.path.join(ROOT_DIR, "checkpoints"))
 ASSETS_DIR = os.path.join(ROOT_DIR, "assets")
 RESULTS_MD = os.path.join(ROOT_DIR, "RESULTS.md")
 
@@ -28,8 +33,16 @@ POWER_COMPRESSION = 0.5
 NORM_EPS = 1e-10
 
 # --- Vocabulary ---
-# lowercase a-z, space, apostrophe
-VOCAB_CHARS = list("abcdefghijklmnopqrstuvwxyz '")
+# Every distinct lowercased character present in metadata.csv's normalized_text
+# column (3rd pipe-delimited field) — a-z plus the punctuation and accented
+# characters LJSpeech's normalized transcripts actually contain. Recompute with:
+#   python -c "import pandas as pd; df = pd.read_csv('data/LJSpeech-1.1/metadata.csv', sep='|', header=None, names=['file_id','raw_text','normalized_text'], quoting=3, keep_default_na=False); chars = set(); [chars.update(t.lower()) for t in df['normalized_text']]; chars.discard(' '); print([' '] + sorted(chars))"
+VOCAB_CHARS = [
+    " ", "!", '"', "'", "(", ")", ",", "-", ".", ":", ";", "?", "[", "]",
+    "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n",
+    "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
+    "à", "â", "è", "é", "ê", "ü", "’", "“", "”",
+]
 
 # --- Model ---
 RNN_UNITS = 256

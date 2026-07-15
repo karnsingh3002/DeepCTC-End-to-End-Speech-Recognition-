@@ -1,4 +1,4 @@
-"""tf.data pipeline: LJ Speech metadata -> batched (spectrogram, label) pairs."""
+"""tf.data pipeline: LJ Speech metadata -> batched (spectrogram, label, label_length) triples."""
 
 import os
 
@@ -44,13 +44,16 @@ def train_val_split(df=None, val_split=VAL_SPLIT, seed=SPLIT_SEED):
 def _load_example(wav_path, text):
     spectrogram = path_to_spectrogram(wav_path)
     label = encode_text(text)
-    return spectrogram, label
+    # Captured before padding, so it's exact regardless of vocab/OOV coverage —
+    # unlike counting non-zero entries after padded_batch, which breaks if any
+    # in-sequence character happens to map to the same index (0) as padding.
+    label_length = tf.shape(label)[0]
+    return spectrogram, label, label_length
 
 
-def _is_ctc_feasible_tf(spectrogram, label):
+def _is_ctc_feasible_tf(spectrogram, label, label_length):
     time_steps = tf.shape(spectrogram)[0]
     input_length = compute_time_steps_after_conv_tf(time_steps)
-    label_length = tf.shape(label)[0]
     return input_length >= label_length
 
 
@@ -81,8 +84,8 @@ def build_dataset(df, batch_size=BATCH_SIZE, shuffle=True, report_drops=True):
     ds = ds.filter(_is_ctc_feasible_tf)
     ds = ds.padded_batch(
         batch_size,
-        padded_shapes=([None, None], [None]),
-        padding_values=(0.0, tf.constant(0, dtype=tf.int64)),
+        padded_shapes=([None, None], [None], []),
+        padding_values=(0.0, tf.constant(0, dtype=tf.int64), tf.constant(0, dtype=tf.int32)),
     )
     ds = ds.prefetch(AUTOTUNE)
     return ds
@@ -93,6 +96,7 @@ if __name__ == "__main__":
     print(f"Train examples: {len(train_df)}  Val examples: {len(val_df)}")
 
     train_ds = build_dataset(train_df.head(64), batch_size=8)
-    for specs, labels in train_ds.take(1):
+    for specs, labels, label_lengths in train_ds.take(1):
         print(f"Batch spectrogram shape: {specs.shape}")
         print(f"Batch label shape: {labels.shape}")
+        print(f"Batch label_length shape/values: {label_lengths.shape} {label_lengths.numpy()}")

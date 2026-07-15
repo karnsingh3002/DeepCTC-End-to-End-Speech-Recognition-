@@ -27,7 +27,6 @@ from src.config import (
 )
 from src.dataset import build_dataset, train_val_split
 from src.decode import greedy_decode
-from src.losses import ctc_loss
 from src.model import build_model
 from src.vocab import VOCAB_SIZE, decode_indices
 
@@ -37,14 +36,17 @@ class PredictionSampler(tf.keras.callbacks.Callback):
 
     def __init__(self, val_ds, num_samples=2):
         super().__init__()
-        self.val_batch = next(iter(val_ds.take(1)))
+        # val_ds yields raw (spectrogram, label, label_length) triples; only the
+        # first two are needed here to predict and decode a sample batch.
+        specs, labels, _ = next(iter(val_ds.take(1)))
+        self.specs = specs
+        self.labels = labels
         self.num_samples = num_samples
 
     def on_epoch_end(self, epoch, logs=None):
-        specs, labels = self.val_batch
-        preds = self.model.predict(specs, verbose=0)
+        preds = self.model.predict(self.specs, verbose=0)
         pred_texts = greedy_decode(preds)
-        true_texts = decode_indices(labels)
+        true_texts = decode_indices(self.labels)
         print(f"\n--- Sample predictions (epoch {epoch + 1}) ---")
         for i in range(min(self.num_samples, len(pred_texts))):
             print(f"  true: {true_texts[i]!r}")
@@ -93,7 +95,7 @@ def main():
     val_ds = build_dataset(val_df, batch_size=args.batch_size, shuffle=False)
 
     model = build_model(input_dim=SPEC_FEATURE_DIM, output_dim=VOCAB_SIZE)
-    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=args.lr), loss=ctc_loss)
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=args.lr))
     model.summary()
 
     checkpoint_path = os.path.join(args.checkpoint_dir, "deepctc.keras")

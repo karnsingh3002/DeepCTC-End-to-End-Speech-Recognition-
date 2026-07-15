@@ -1,8 +1,47 @@
 """DeepSpeech2-style CNN + BiGRU acoustic model builder."""
 
+import keras
 import tensorflow as tf
 
 from src.config import DROPOUT, RNN_LAYERS, RNN_UNITS
+from src.losses import ctc_loss
+
+
+@keras.saving.register_keras_serializable(package="deepctc")
+class CTCModel(tf.keras.Model):
+    """tf.keras.Model with a custom train/test step.
+
+    Batches come from dataset.py as (spectrogram, label, label_length) triples
+    with an explicit, pre-padding label_length. Keras's standard compile(loss=fn)
+    dispatch requires y_true and y_pred to share the same nested structure, which
+    rejects a (label, label_length) tuple against a flat prediction tensor — so
+    the loss is computed here directly instead of through that dispatch.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.loss_tracker = tf.keras.metrics.Mean(name="loss")
+
+    @property
+    def metrics(self):
+        return [self.loss_tracker]
+
+    def train_step(self, data):
+        spectrogram, label, label_length = data
+        with tf.GradientTape() as tape:
+            y_pred = self(spectrogram, training=True)
+            loss = ctc_loss((label, label_length), y_pred)
+        gradients = tape.gradient(loss, self.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
+        self.loss_tracker.update_state(loss)
+        return {"loss": self.loss_tracker.result()}
+
+    def test_step(self, data):
+        spectrogram, label, label_length = data
+        y_pred = self(spectrogram, training=False)
+        loss = ctc_loss((label, label_length), y_pred)
+        self.loss_tracker.update_state(loss)
+        return {"loss": self.loss_tracker.result()}
 
 # Both conv layers use stride 2 along the time axis -> overall /4 downsampling.
 CONV_TIME_STRIDES = (2, 2)
@@ -77,7 +116,7 @@ def build_model(input_dim, output_dim, rnn_units=RNN_UNITS, rnn_layers=RNN_LAYER
 
     output = tf.keras.layers.Dense(output_dim + 1, activation="softmax", name="output")(x)
 
-    model = tf.keras.Model(input_spec, output, name="DeepCTC")
+    model = CTCModel(input_spec, output, name="DeepCTC")
     return model
 
 
